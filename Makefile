@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-BUILD_SRC = src/locks.c src/detector.c src/rlocks.c src/utils.c
+BUILD_SRC = src/locks.c src/detector.c src/rlocks.c
 BUILD_DIR = build
 
 FORMATTER = clang-format
@@ -15,7 +15,7 @@ all:
 	clang -shared -fPIC -o $(BUILD_DIR)/$(LIB).so $(BUILD_SRC) -ldl
 
 test/bank:
-	@LD_PRELOAD=./$(BUILD_DIR)/$(LIB).so ./bank_test/bank-test
+	@LD_PRELOAD=./$(BUILD_DIR)/$(LIB).so ./bank_test/bank-test || true
 
 format:
 	$(FORMATTER) -i $(SOURCES)

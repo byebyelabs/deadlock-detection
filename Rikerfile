@@ -1,4 +1,4 @@
-export BUILD_SRC = src/locks.c src/detector.c src/rlocks.c src/utils.c
+export BUILD_SRC = src/locks.c src/detector.c src/rlocks.c
 export BUILD_DIR = build
 
 export LAB = byebye
