@@ -1,0 +1,9 @@
+export BUILD_SRC = src/locks.c src/detector.c src/rlocks.c src/utils.c
+export BUILD_DIR = build
+
+export LAB = byebye
+export PRJ = deadlocks
+export LIB = $(LAB)_$(PRJ)
+
+mkdir -p $(BUILD_DIR)
+clang -shared -fPIC -o $(BUILD_DIR)/$(LIB).so $(BUILD_SRC) -ldl
