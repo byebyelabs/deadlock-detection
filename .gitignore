@@ -1,2 +1,3 @@
 build/
 *.so
+bank_test/bank-test
