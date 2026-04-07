@@ -10,6 +10,7 @@ static _Thread_local pthread_mutex_t* TRD_LCL_CURR_HELD_LOCKS[MAX_LOCK_COUNT];
 
 
 void print_global_lock_order_ds() {
+    return;
     if (GLOBAL_LOCK_ORDERS == NULL) {
         printf("(NULL)\n");
     }
@@ -34,12 +35,7 @@ void print_global_lock_order_ds() {
     }
 }
 
-
-void before_lock(pthread_mutex_t *m) {
-    printf("before lock started for %p\n", m);
-
-    real_pthread_mutex_lock(&DETECTOR_LOCK);
-
+void verify_no_deadlock(pthread_mutex_t *m) {
     // get lock node if it exists
     node_t* curr = GLOBAL_LOCK_ORDERS;
     while (curr != NULL && curr->lock_number != m) {
@@ -51,7 +47,7 @@ void before_lock(pthread_mutex_t *m) {
         curr = malloc(sizeof(node_t)); // TODO: re-think about free later
         curr->next = GLOBAL_LOCK_ORDERS;
         curr->lock_number = m;
-        curr->avoid_lock_numbers = malloc(sizeof(pthread_mutex_t*) * MAX_LOCK_COUNT);
+        curr->avoid_lock_numbers = calloc(MAX_LOCK_COUNT, sizeof(pthread_mutex_t*));
         curr->avoid_lock_numbers[0] = NULL; // NULL-terminating list
 
         GLOBAL_LOCK_ORDERS = curr;
@@ -83,18 +79,32 @@ void before_lock(pthread_mutex_t *m) {
             // TRD_LCL_CURR_HELD_LOCKS[i] was in avoid_lock_numbers, which means 
             // there could be a deadlock
             printf("curr held lock %p is in avoid list", TRD_LCL_CURR_HELD_LOCKS[i]);
-            perror("Deadlock detected");
+            perror(">>>>>>>>>>>>>>>> Deadlock detected");
             exit(EXIT_FAILURE);
         }
     }
 
+}
+
+
+void before_lock(pthread_mutex_t *m) {
+    printf("before lock started for %p\n", m);
+
+    real_pthread_mutex_lock(&DETECTOR_LOCK);
+    verify_no_deadlock(m);
+    real_pthread_mutex_unlock(&DETECTOR_LOCK);
+    
     print_global_lock_order_ds();
     printf("before lock ended for %p\n", m);
+
     return;
 }
 
 void after_lock(pthread_mutex_t *m) {
     printf("after lock started for %p\n", m);
+    
+    real_pthread_mutex_lock(&DETECTOR_LOCK);
+    verify_no_deadlock(m);
     
     // search for m in GLOBAL_LOCK_ORDERS 
     node_t* curr = GLOBAL_LOCK_ORDERS;
@@ -128,9 +138,12 @@ void after_lock(pthread_mutex_t *m) {
     NUM_TRD_LCL_CURR_HELD_LOCKS += 1;
     printf("new NUM_TRD_LCL_CURR_HELD_LOCKS: %d\n", NUM_TRD_LCL_CURR_HELD_LOCKS);
 
-    real_pthread_mutex_unlock(&DETECTOR_LOCK);
+
     print_global_lock_order_ds();
     printf("after lock ended for %p\n", m);
+
+    real_pthread_mutex_unlock(&DETECTOR_LOCK);
+    
     return;
 }
 
