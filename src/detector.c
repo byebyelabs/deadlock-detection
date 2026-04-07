@@ -10,11 +10,16 @@ static pthread_mutex_t DETECTOR_LOCK = PTHREAD_MUTEX_INITIALIZER;
 static _Thread_local int NUM_TRD_LCL_CURR_HELD_LOCKS = 0;
 static _Thread_local pthread_mutex_t *TRD_LCL_CURR_HELD_LOCKS[MAX_LOCK_COUNT];
 
-void print_error_trace() {
+void print_error_trace(pthread_mutex_t *violated, pthread_mutex_t *violator) {
   const int MAX_BACKTRACE_SIZE = 15;
   void *buffer[MAX_BACKTRACE_SIZE];
   int n_ptrs = backtrace(buffer, MAX_BACKTRACE_SIZE);
   fprintf(stderr, "WARNING: Potential Deadlock Detected\n");
+  fprintf(
+      stderr,
+      "Lock at address [%p] held during acquisition of lock at address [%p]! "
+      "Expected other direction.\n",
+      violated, violator);
   fprintf(stderr, "Backtrace was %d addresses long\n", n_ptrs);
   char **bt_syms = backtrace_symbols(buffer, n_ptrs);
   if (bt_syms == NULL) {
@@ -73,7 +78,7 @@ void verify_no_deadlock(pthread_mutex_t *m) {
 
     // found a potential deadlock condition!
     if (found_mutex_in_avoid_list) {
-      print_error_trace();
+      print_error_trace(held_node->avoid_lock_numbers[checked], m);
       exit(EXIT_FAILURE);
     }
   }
@@ -158,7 +163,7 @@ void after_unlock(pthread_mutex_t *m) {
          TRD_LCL_CURR_HELD_LOCKS[index] != m) {
     index++;
   }
-  
+
   // throw an error if lock not found!
   if (TRD_LCL_CURR_HELD_LOCKS[index] != m) {
     perror("ERROR: Lock Not Found In Thread's Lock Set");
