@@ -12,7 +12,7 @@ all:
 	clang -shared -fPIC -o $(BUILD_DIR)/$(LIB).so $(BUILD_SRC) -ldl
 
 test/bank:
-	@LD_PRELOAD=./$(BUILD_DIR)/$(LIB).so ~/csc213/exercises/bank/bank-test
+	@LD_PRELOAD=./$(BUILD_DIR)/$(LIB).so ./bank_test/bank-test
 
 clean:
 	@rm -rf $(BUILD_DIR)
