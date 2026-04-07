@@ -1,5 +1,7 @@
 # Deadlock Detection
 
+[GitHub](https://github.com/byebyelabs/deadlock-detection)
+
 ### Algorithm
 
 There are four conditions that must all be met for deadlock to occur:
