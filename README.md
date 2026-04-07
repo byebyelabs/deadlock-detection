@@ -23,9 +23,9 @@ We maintain a global graph in [src/detector.c](src/detector.c) using a linked li
 
 For each thread, a thread-local array tracks the currently held locks (`TRD_LCL_CURR_HELD_LOCKS`). Before a thread attempts to take a lock `m`, `verify_no_deadlock()` checks each currently held lock and checks whether `m` appears in that lock's `avoid_lock_numbers`. If it does, the ordering rule would be violated, meaning the library prints a backtrace and exits.
 
-After a lock is successfully acquired, we update the graph by unioning the current thread's held locks into the new lock's `avoid_lock_numbers`. This is to preserve the invariant: once a lock is seen after another, it must always be acquired after it in the future. We use a global lock to protect the shared graph while checking and updating.
-
 #### Backtracing
+
+When a potential cycle is detected, we use `backtrace()` and `backtrace_symbols()` to show where the out-of-order lock acquisition happen. This is implemented in [src/detector.c](src/detector.c). The stack is captured and printed to stderr before exiting.
 
 #### Library Interposition
 
