@@ -6,9 +6,9 @@
 
 // global data structure to store state
 typedef struct node {
-    pthread_mutex_t* lock_number;
-    pthread_mutex_t** avoid_lock_numbers;
-    struct node* next;
+  pthread_mutex_t *lock_number;
+  pthread_mutex_t **avoid_lock_numbers;
+  struct node *next;
 } node_t;
 
 void before_lock(pthread_mutex_t *m);

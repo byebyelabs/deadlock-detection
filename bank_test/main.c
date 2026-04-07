@@ -8,9 +8,9 @@
 #define STARTING_BALANCE 100
 #define TRANSACTIONS 1000
 
-void* run_transactions(void* arg) {
+void *run_transactions(void *arg) {
   // Get the account ID from the argument
-  size_t account_id = *(size_t*)arg;
+  size_t account_id = *(size_t *)arg;
 
   // Run random transactions
   for (size_t i = 0; i < TRANSACTIONS; i++) {
@@ -41,7 +41,7 @@ void* run_transactions(void* arg) {
   return NULL;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   // Seed the random number generator
   srand(time(NULL));
 
@@ -91,7 +91,8 @@ int main(int argc, char** argv) {
            NUM_ACCOUNTS * STARTING_BALANCE - total_funds);
 
   } else {
-    printf("The total balance is wrong! The bank has somehow gained %d in funds.\n",
+    printf("The total balance is wrong! The bank has somehow gained %d in "
+           "funds.\n",
            total_funds - NUM_ACCOUNTS * STARTING_BALANCE);
   }
 

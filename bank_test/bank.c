@@ -23,7 +23,8 @@ void init_bank() {
 // Get the balance for a bank account
 int get_balance(size_t account_id) {
   // Make sure the account id is valid
-  if (account_id >= NUM_ACCOUNTS) return INVALID_ACCOUNT;
+  if (account_id >= NUM_ACCOUNTS)
+    return INVALID_ACCOUNT;
 
   // Return the balance
   return accounts[account_id].balance;
@@ -32,7 +33,8 @@ int get_balance(size_t account_id) {
 // Deposit funds to an account from an outside source
 void deposit(size_t account_id, int amount) {
   // If the account id is invalid, return immediately
-  if (account_id >= NUM_ACCOUNTS) return;
+  if (account_id >= NUM_ACCOUNTS)
+    return;
 
   // Add funds
   accounts[account_id].balance += amount;
@@ -41,13 +43,16 @@ void deposit(size_t account_id, int amount) {
 // Transfer funds from one account to another
 void transfer(size_t from_id, size_t to_id, int amount) {
   // If either account id is invalid, return immediately
-  if (from_id >= NUM_ACCOUNTS || to_id >= NUM_ACCOUNTS) return;
+  if (from_id >= NUM_ACCOUNTS || to_id >= NUM_ACCOUNTS)
+    return;
 
   // If the from and to accounts are the same, return immediately
-  if (from_id == to_id) return;
+  if (from_id == to_id)
+    return;
 
   // If the amount is zero or negative, return immediately
-  if (amount <= 0) return;
+  if (amount <= 0)
+    return;
 
   // lock accounts
   pthread_mutex_lock(&accounts[from_id].lock);
