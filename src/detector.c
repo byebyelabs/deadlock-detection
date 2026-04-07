@@ -151,4 +151,28 @@ void after_lock(pthread_mutex_t *m) {
 
 void before_unlock(pthread_mutex_t *m) { return; }
 
-void after_unlock(pthread_mutex_t *m) { return; }
+void after_unlock(pthread_mutex_t *m) {
+  // remove held lock from the thread's lock set
+  int index = 0;
+  while (index < NUM_TRD_LCL_CURR_HELD_LOCKS &&
+         TRD_LCL_CURR_HELD_LOCKS[index] != m) {
+    index++;
+  }
+  
+  // throw an error if lock not found!
+  if (TRD_LCL_CURR_HELD_LOCKS[index] != m) {
+    perror("ERROR: Lock Not Found In Thread's Lock Set");
+    exit(EXIT_FAILURE);
+  }
+
+  // override removed lock with last lock in the set (array)
+  TRD_LCL_CURR_HELD_LOCKS[index] =
+      TRD_LCL_CURR_HELD_LOCKS[NUM_TRD_LCL_CURR_HELD_LOCKS - 1];
+
+  // NULL-terminate the list
+  TRD_LCL_CURR_HELD_LOCKS[NUM_TRD_LCL_CURR_HELD_LOCKS - 1] = NULL;
+
+  // decrement count of held locks
+  NUM_TRD_LCL_CURR_HELD_LOCKS -= 1;
+  return;
+}
