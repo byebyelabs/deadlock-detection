@@ -69,7 +69,9 @@ void verify_no_deadlock(pthread_mutex_t *m) {
       held_node = held_node->next;
     }
     if (held_node == NULL) {
-      continue;
+      // TODO: decide if we throw error here or continue
+      perror("ERROR: Some Held Lock's Node Not Found");
+      exit(EXIT_FAILURE);
     }
 
     // check if m exists in any held lock's avoid lock numbers
@@ -104,28 +106,26 @@ void verify_no_deadlock(pthread_mutex_t *m) {
 }
 
 void before_lock(pthread_mutex_t *m) {
-  printf("before lock started for %p\n", m);
-
   real_pthread_mutex_lock(&DETECTOR_LOCK);
   verify_no_deadlock(m);
   real_pthread_mutex_unlock(&DETECTOR_LOCK);
-
-  print_global_lock_order_ds();
-  printf("before lock ended for %p\n", m);
-
   return;
 }
 
 void after_lock(pthread_mutex_t *m) {
-  printf("after lock started for %p\n", m);
-
   real_pthread_mutex_lock(&DETECTOR_LOCK);
   verify_no_deadlock(m);
 
-  // search for m in GLOBAL_LOCK_ORDERS
+  // search for m node (must exist!)
   node_t *curr = GLOBAL_LOCK_ORDERS;
   while (curr != NULL && curr->lock_number != m) {
     curr = curr->next;
+  }
+
+  if (curr == NULL) {
+    // TODO: decide if we throw error here or continue
+    perror("ERROR: Some Held Lock's Node Not Found");
+    exit(EXIT_FAILURE);
   }
 
   // union curr->avoid_lock_numbers and TRD_LCL_CURR_HELD_LOCKS[i], save to
