@@ -48,7 +48,7 @@ void before_lock(pthread_mutex_t *m) {
 
     // insert new node if not found
     if (curr == NULL) {
-        curr = malloc(sizeof(node_t*)); // TODO: re-think about free later
+        curr = malloc(sizeof(node_t)); // TODO: re-think about free later
         curr->next = GLOBAL_LOCK_ORDERS;
         curr->lock_number = m;
         curr->avoid_lock_numbers = malloc(sizeof(pthread_mutex_t*) * MAX_LOCK_COUNT);
@@ -59,16 +59,23 @@ void before_lock(pthread_mutex_t *m) {
         printf("discovered new lock: %p\n", m);
     }
 
-    // Assert currently held locks are not in curr->avoid_lock_numbers
+    // Assert m is not in any held lock's avoid_lock_numbers
     for (int i = 0; i < NUM_TRD_LCL_CURR_HELD_LOCKS; i++) {
         int found = 0;
         int checked = 0;
 
         printf("checking if curr held lock %p is in avoid list", TRD_LCL_CURR_HELD_LOCKS[i]);
 
+        // find the node for the held lock
+        node_t* held_node = GLOBAL_LOCK_ORDERS;
+        while (held_node != NULL && held_node->lock_number != TRD_LCL_CURR_HELD_LOCKS[i]) {
+            held_node = held_node->next;
+        }
+        if (held_node == NULL) continue;
+
         // NULL-terminating list
-        while (!found && checked < MAX_LOCK_COUNT && curr->avoid_lock_numbers[checked] != NULL) {
-            found = (curr->avoid_lock_numbers[checked] == TRD_LCL_CURR_HELD_LOCKS[i]);
+        while (!found && checked < MAX_LOCK_COUNT && held_node->avoid_lock_numbers[checked] != NULL) {
+            found = (held_node->avoid_lock_numbers[checked] == m);
             checked++;
         }
 
