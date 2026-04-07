@@ -10,29 +10,19 @@ static pthread_mutex_t DETECTOR_LOCK = PTHREAD_MUTEX_INITIALIZER;
 static _Thread_local int NUM_TRD_LCL_CURR_HELD_LOCKS = 0;
 static _Thread_local pthread_mutex_t *TRD_LCL_CURR_HELD_LOCKS[MAX_LOCK_COUNT];
 
-void print_global_lock_order_ds() {
-  return;
-  if (GLOBAL_LOCK_ORDERS == NULL) {
-    printf("(NULL)\n");
-  }
-
-  node_t *curr = GLOBAL_LOCK_ORDERS;
-  while (curr != NULL) {
-    printf("lock_num: %p\n", curr->lock_number);
-    printf(" avoid_lock_nums:\n");
-
-    int index = 0;
-    while (curr->avoid_lock_numbers[index] != NULL) {
-      printf("  %p\n", curr->avoid_lock_numbers[index]);
-      index++;
+void print_error_trace() {
+  const int MAX_BACKTRACE_SIZE = 15;
+  void *buffer[MAX_BACKTRACE_SIZE];
+  int n_ptrs = backtrace(buffer, MAX_BACKTRACE_SIZE);
+  fprintf(stderr, "WARNING: Potential Deadlock Detected\n");
+  fprintf(stderr, "Backtrace was %d addresses long\n", n_ptrs);
+  char **bt_syms = backtrace_symbols(buffer, n_ptrs);
+  if (bt_syms == NULL) {
+    perror("Could not get backtrace symbols!");
+  } else {
+    for (size_t j = 0; j < n_ptrs; j++) {
+      fprintf(stderr, "%s\n", bt_syms[j]);
     }
-
-    curr = curr->next;
-  }
-
-  printf("TRD_LCL_CURR_HELD_LOCKS:\n");
-  for (int i = 0; i < NUM_TRD_LCL_CURR_HELD_LOCKS; i++) {
-    printf("  %p\n", TRD_LCL_CURR_HELD_LOCKS[i]);
   }
 }
 
@@ -83,23 +73,7 @@ void verify_no_deadlock(pthread_mutex_t *m) {
 
     // found a potential deadlock condition!
     if (found_mutex_in_avoid_list) {
-      // TRD_LCL_CURR_HELD_LOCKS[i] was in avoid_lock_numbers, which means
-      // there could be a deadlock
-      fprintf(stderr, "!!! Currently held lock %p is in avoid list\n",
-              TRD_LCL_CURR_HELD_LOCKS[i]);
-      const int MAX_BACKTRACE_SIZE = 15;
-      void *buffer[MAX_BACKTRACE_SIZE];
-      int n_ptrs = backtrace(buffer, MAX_BACKTRACE_SIZE);
-      fprintf(stderr, "WARNING: Potential Deadlock Detected\n");
-      fprintf(stderr, "Backtrace was %d addresses long\n", n_ptrs);
-      char **bt_syms = backtrace_symbols(buffer, n_ptrs);
-      if (bt_syms == NULL) {
-        perror("Could not get backtrace symbols!");
-      } else {
-        for (size_t j = 0; j < n_ptrs; j++) {
-          fprintf(stderr, "%s\n", bt_syms[j]);
-        }
-      }
+      print_error_trace();
       exit(EXIT_FAILURE);
     }
   }
@@ -114,6 +88,8 @@ void before_lock(pthread_mutex_t *m) {
 
 void after_lock(pthread_mutex_t *m) {
   real_pthread_mutex_lock(&DETECTOR_LOCK);
+
+  // ensure no deadlock's found
   verify_no_deadlock(m);
 
   // search for m node (must exist!)
@@ -124,43 +100,52 @@ void after_lock(pthread_mutex_t *m) {
 
   if (curr == NULL) {
     // TODO: decide if we throw error here or continue
-    perror("ERROR: Some Held Lock's Node Not Found");
+    perror("ERROR: New Lock's Node Not Found");
     exit(EXIT_FAILURE);
   }
 
-  // union curr->avoid_lock_numbers and TRD_LCL_CURR_HELD_LOCKS[i], save to
-  // curr->avoid_lock_numbers go through all held locks in thread, and then add
-  // them to newest lock's avoid_lock_numbers
-  int index = 0;
-  while (index < MAX_LOCK_COUNT && curr->avoid_lock_numbers[index] != NULL)
-    index++;
+  // now, add all currently held locks to this newly acquired lock's avoid list
+  for (int i = 0; i < NUM_TRD_LCL_CURR_HELD_LOCKS; i++) {
+    // get this held lock's node struct
+    node_t *held_node = GLOBAL_LOCK_ORDERS;
+    while (held_node != NULL &&
+           held_node->lock_number != TRD_LCL_CURR_HELD_LOCKS[i]) {
+      held_node = held_node->next;
+    }
 
-  if (index >= MAX_LOCK_COUNT - NUM_TRD_LCL_CURR_HELD_LOCKS) {
-    perror("Not enough space, increace `MAX_LOCK_COUNT`");
-    exit(EXIT_FAILURE);
+    if (held_node == NULL) {
+      // TODO: decide if we throw error here or continue
+      perror("ERROR: Some Held Lock's Node Not Found");
+      exit(EXIT_FAILURE);
+    }
+
+    // check if held node is already in the current node's avoid list
+    int index = 0;
+    int found_held_node = 0;
+    while (!found_held_node && index < MAX_LOCK_COUNT &&
+           curr->avoid_lock_numbers[index] != NULL) {
+      found_held_node =
+          (held_node->lock_number == curr->avoid_lock_numbers[index]);
+      index++;
+    }
+
+    if (index == MAX_LOCK_COUNT) {
+      perror("ERROR: Not Enough Space, Increase `MAX_LOCK_COUNT`");
+      exit(EXIT_FAILURE);
+    }
+
+    // if not found, save the unique value to list!
+    curr->avoid_lock_numbers[index] = TRD_LCL_CURR_HELD_LOCKS[i];
+    if (++index < MAX_LOCK_COUNT) {
+      curr->avoid_lock_numbers[index] = NULL;
+    }
   }
 
-  for (int j = 0; j < NUM_TRD_LCL_CURR_HELD_LOCKS; j++) {
-    curr->avoid_lock_numbers[index] = TRD_LCL_CURR_HELD_LOCKS[j];
-    index++;
-  }
-
-  curr->avoid_lock_numbers[index] = NULL;
-
-  if (NUM_TRD_LCL_CURR_HELD_LOCKS == MAX_LOCK_COUNT) {
-    perror("Not enough space, increace `MAX_LOCK_COUNT`");
-    exit(EXIT_FAILURE);
-  }
-
+  // save the newly held lock to the thread's lock set
   TRD_LCL_CURR_HELD_LOCKS[NUM_TRD_LCL_CURR_HELD_LOCKS] = m;
   NUM_TRD_LCL_CURR_HELD_LOCKS += 1;
-  printf("new NUM_TRD_LCL_CURR_HELD_LOCKS: %d\n", NUM_TRD_LCL_CURR_HELD_LOCKS);
-
-  print_global_lock_order_ds();
-  printf("after lock ended for %p\n", m);
 
   real_pthread_mutex_unlock(&DETECTOR_LOCK);
-
   return;
 }
 
