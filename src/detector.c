@@ -2,6 +2,8 @@
 #include "internal/rlocks.h"
 #include "internal/utils.h"
 
+#include <execinfo.h>
+
 static node_t *GLOBAL_LOCK_ORDERS = NULL;
 static pthread_mutex_t DETECTOR_LOCK = PTHREAD_MUTEX_INITIALIZER;
 
@@ -79,7 +81,23 @@ void verify_no_deadlock(pthread_mutex_t *m) {
 
     // found a potential deadlock condition!
     if (found_mutex_in_avoid_list) {
-      perror("WARNING: Potential Deadlock Detected");
+      // TRD_LCL_CURR_HELD_LOCKS[i] was in avoid_lock_numbers, which means
+      // there could be a deadlock
+      fprintf(stderr, "!!! Currently held lock %p is in avoid list\n",
+              TRD_LCL_CURR_HELD_LOCKS[i]);
+      const int MAX_BACKTRACE_SIZE = 15;
+      void *buffer[MAX_BACKTRACE_SIZE];
+      int n_ptrs = backtrace(buffer, MAX_BACKTRACE_SIZE);
+      fprintf(stderr, "WARNING: Potential Deadlock Detected\n");
+      fprintf(stderr, "Backtrace was %d addresses long\n", n_ptrs);
+      char **bt_syms = backtrace_symbols(buffer, n_ptrs);
+      if (bt_syms == NULL) {
+        perror("Could not get backtrace symbols!");
+      } else {
+        for (size_t j = 0; j < n_ptrs; j++) {
+          fprintf(stderr, "%s\n", bt_syms[j]);
+        }
+      }
       exit(EXIT_FAILURE);
     }
   }
