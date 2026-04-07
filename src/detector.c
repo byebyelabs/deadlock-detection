@@ -1,6 +1,5 @@
 #include "internal/detector.h"
 #include "internal/rlocks.h"
-#include "internal/utils.h"
 
 #include <execinfo.h>
 
@@ -78,7 +77,7 @@ void verify_no_deadlock(pthread_mutex_t *m) {
 
     // found a potential deadlock condition!
     if (found_mutex_in_avoid_list) {
-      print_error_trace(held_node->avoid_lock_numbers[checked], m);
+      print_error_trace(held_node->avoid_lock_numbers[checked-1], m);
       exit(EXIT_FAILURE);
     }
   }
